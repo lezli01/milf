@@ -34,5 +34,6 @@ MILF stands for Markdown Interface & Live Formatter.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current plan:
+[specs/002-split-pane-editor-layout/plan.md](specs/002-split-pane-editor-layout/plan.md)
 <!-- SPECKIT END -->
