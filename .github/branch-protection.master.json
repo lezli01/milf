@@ -5,6 +5,7 @@
       "Build & lint",
       "Analyze (javascript-typescript)",
       "Analyze (rust)",
+      "Review dependency changes",
       "PR title is conventional",
       "Commit messages are conventional",
       "Scan for leaked secrets"
