@@ -31,7 +31,7 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 **Purpose**: One Tauri capability change so the webview is allowed to call `writeTextFile`. No npm/cargo dependencies are added.
 
-- [ ] T001 Add the `fs:allow-write-text-file` permission to `src-tauri/capabilities/default.json` immediately after the existing `fs:allow-read-text-file` entry. This is the narrowest available permission for save and must be present before any save call is reachable from the webview (per [research.md](research.md) §5 and [contracts/components.md](contracts/components.md#tauri-configuration-changes)).
+- [X] T001 Add the `fs:allow-write-text-file` permission to `src-tauri/capabilities/default.json` immediately after the existing `fs:allow-read-text-file` entry. This is the narrowest available permission for save and must be present before any save call is reachable from the webview (per [research.md](research.md) §5 and [contracts/components.md](contracts/components.md#tauri-configuration-changes)).
 
 ---
 
@@ -41,7 +41,7 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 **CRITICAL**: T002 blocks US1 (manual save) and US3 (auto-save). US2 (FileHeader) does not strictly require T002, but the recommended order is to land T001–T002 first so all three stories can be developed in parallel afterward.
 
-- [ ] T002 Extend `src/lib/fileOpen.ts` with the new save helper and update the module header comment so the chokepoint invariant still reads truthfully:
+- [X] T002 Extend `src/lib/fileOpen.ts` with the new save helper and update the module header comment so the chokepoint invariant still reads truthfully:
   1. Update the top-of-file comment from "dialog, fs, and window APIs" to "dialog, fs (read AND write), and window APIs" so a future contributor grepping for `@tauri-apps/plugin-fs` still understands why this is the only importing module.
   2. Add `writeTextFile` to the existing `@tauri-apps/plugin-fs` import.
   3. Add the exported discriminated union `export type SaveResult = { kind: "ok" } | { kind: "error"; message: string };` next to the existing `OpenResult` type.
@@ -60,14 +60,14 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 ### Implementation for User Story 1
 
-- [ ] T003 [P] [US1] Update `src/components/Toolbar.tsx` to expose a Save button and accept the new props in the existing toolbar layout:
+- [X] T003 [P] [US1] Update `src/components/Toolbar.tsx` to expose a Save button and accept the new props in the existing toolbar layout:
   1. Extend `ToolbarProps` with `saveEnabled: boolean`, `saving: boolean`, and `onSave: () => void` (per [contracts/components.md](contracts/components.md#toolbar--updated-from-feature-003)).
   2. Add a small inline `SaveIcon` SVG component next to the existing `FolderOpenIcon`/`MoonIcon`/`SunIcon` definitions (a floppy / disk glyph following the same stroke conventions — `viewBox="0 0 24 24"`, `strokeWidth="1.75"`).
   3. Render a Save `<button type="button">` as the **first** control in the toolbar (left of Open), using `buttonBase` for styling, `<SaveIcon />` + `<span>Save</span>` as content, and `disabled={!saveEnabled}` plus `aria-disabled={!saveEnabled}` and `aria-busy={saving}`. Reuse the existing disabled-styling convention (the codebase currently does not have a dedicated "disabled" Tailwind chain — add `aria-disabled` and rely on the native `disabled` attribute to give the browser-default greyed-out appearance; if visual disabled cue is too subtle, append `disabled:opacity-50 disabled:cursor-not-allowed` to `buttonBase`).
   4. Wire `onClick={onSave}` on the Save button.
   5. Do NOT touch the auto-save checkbox in this task — that lands in US3 (T008).
 
-- [ ] T004 [P] [US1] Update `src/App.tsx` to track the saved snapshot and drive the Save flow:
+- [X] T004 [P] [US1] Update `src/App.tsx` to track the saved snapshot and drive the Save flow:
   1. Add state: `const [savedText, setSavedText] = useState(starterContent);` and `const [saving, setSaving] = useState(false);` next to the existing `text` / `openedFile` / `error` state declarations.
   2. Add a ref: `const pendingSaveRef = useRef(false);` (import `useRef` from React).
   3. Add the import for `saveMarkdownFile` from `./lib/fileOpen` next to the existing `openMarkdownFile, setWindowTitle` import.
@@ -96,7 +96,7 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 ### Implementation for User Story 2
 
-- [ ] T005 [P] [US2] Create `src/components/FileHeader.tsx` as a pure presentational component (per [contracts/components.md](contracts/components.md#fileheader--new)):
+- [X] T005 [P] [US2] Create `src/components/FileHeader.tsx` as a pure presentational component (per [contracts/components.md](contracts/components.md#fileheader--new)):
   1. Define `type FileHeaderProps = { fileName: string | null; fullPath: string | null; isModified: boolean };` and `export default function FileHeader(props: FileHeaderProps)`.
   2. Render a `<header>` element with `role="status"` and `aria-live="polite"` so screen readers announce file-name changes without interrupting.
   3. Style the header with the same islands-surface utility chain `<Toolbar />` uses (`rounded-2xl bg-[color:var(--islands-surface)] ring-1 ring-[color:var(--islands-ring)] shadow-sm backdrop-blur px-3 py-2`) so theme switching automatically re-skins it. Inside, use a flex row with `items-center gap-2 min-w-0` so truncation works.
@@ -105,7 +105,7 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
   6. Hold no state, call no `lib/*` modules, import no Tauri APIs — this is presentation only.
   7. Stay under the Constitution's ~150-line component ceiling (the component itself is ~30–50 lines).
 
-- [ ] T006 [US2] Update `src/App.tsx` to render the new header above the toolbar:
+- [X] T006 [US2] Update `src/App.tsx` to render the new header above the toolbar:
   1. Import `FileHeader` from `./components/FileHeader`.
   2. Inside the returned `<div className={appShell}>`, render `<FileHeader fileName={openedFile?.name ?? null} fullPath={openedFile?.path ?? null} isModified={isModified} />` as the **first** child, immediately before `<Toolbar />`. This places the header above the toolbar and outside `<Workspace />` so it remains visible in every view mode ([research.md](research.md) §6 and [contracts/components.md](contracts/components.md#app--updated-from-feature-003)).
   3. Confirm `isModified` is already in scope from T004 (computed inline in the render body). If T004 has not landed yet, derive it locally here using the existing `text` and (US2-only intermediate scenario) `starterContent` — but the recommended order is to land US1 first so `savedText` exists.
@@ -123,20 +123,20 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 ### Implementation for User Story 3
 
-- [ ] T007 [P] [US3] Extend `src/lib/preferences.ts` with the new `autoSave` preference, following the existing pattern used for `theme` and `viewMode` (per [research.md](research.md) §4 and [contracts/components.md](contracts/components.md#libpreferencests-updated-from-feature-003)):
+- [X] T007 [P] [US3] Extend `src/lib/preferences.ts` with the new `autoSave` preference, following the existing pattern used for `theme` and `viewMode` (per [research.md](research.md) §4 and [contracts/components.md](contracts/components.md#libpreferencests-updated-from-feature-003)):
   1. Add module-level constants below the existing ones: `const AUTO_SAVE_KEY = "milf.autoSave";` and `const ALLOWED_AUTO_SAVE = ["on", "off"] as const;`.
   2. Export `function getAutoSave(): boolean` that wraps `window.localStorage.getItem(AUTO_SAVE_KEY)` in try/catch: returns `true` if the stored value is exactly `"on"`, `false` if it is exactly `"off"`, and `false` for any other value (`null`, unknown, malformed) or if `localStorage` throws. This is the FR-019 / FR-020 default-OFF behaviour.
   3. Export `function setAutoSave(on: boolean): void` that wraps `window.localStorage.setItem(AUTO_SAVE_KEY, on ? "on" : "off")` in try/catch, logging a `console.warn` on failure but not throwing. Same best-effort pattern as `setTheme` / `setViewMode`.
   4. Do NOT modify the existing `getTheme`, `setTheme`, `getViewMode`, or `setViewMode` functions or their constants.
 
-- [ ] T008 [P] [US3] Update `src/components/Toolbar.tsx` to render the auto-save checkbox alongside the Save button:
+- [X] T008 [P] [US3] Update `src/components/Toolbar.tsx` to render the auto-save checkbox alongside the Save button:
   1. Extend `ToolbarProps` with `autoSave: boolean` and `onToggleAutoSave: (next: boolean) => void` (per [contracts/components.md](contracts/components.md#toolbar--updated-from-feature-003)).
   2. Render a `<label>` immediately to the right of the Save button (after the `<button>Save</button>` from T003, before the `<button>Open</button>`). The label wraps `<input type="checkbox" checked={autoSave} onChange={(e) => onToggleAutoSave(e.target.checked)} />` followed by a visible `<span>Auto-save</span>`. Style the label with the toolbar's existing palette via `flex items-center gap-2 text-sm font-medium text-[color:var(--islands-text)] cursor-pointer select-none` plus a small horizontal padding to match the buttons.
   3. The checkbox uses the existing `--islands-cursor` accent via Tailwind's `accent-[color:var(--islands-cursor)]` so it visually fits the theme.
   4. The checkbox is **always enabled**, even when `saveEnabled` is false — per FR-014, the toggle remains visible and settable when no file is open so its setting is retained for the next time a file is opened.
   5. No `aria-label` on the input is needed because the wrapping `<label>` provides the accessible name.
 
-- [ ] T009 [US3] Update `src/App.tsx` to own auto-save state and the debounce effect:
+- [X] T009 [US3] Update `src/App.tsx` to own auto-save state and the debounce effect:
   1. Add the import for `getAutoSave, setAutoSave as persistAutoSave` from `./lib/preferences` (folded into the existing `preferences` import alongside `getTheme`, `getViewMode`, etc.).
   2. Add a module-local constant near the top of the file: `const AUTO_SAVE_DEBOUNCE_MS = 1500;` (chosen as the midpoint of the spec's 1–3 s allowance and well inside SC-004's 5 s budget — per [research.md](research.md) §2).
   3. Add state: `const [autoSave, setAutoSaveState] = useState<boolean>(() => getAutoSave());` (lazy initialiser, mirroring the existing `theme` / `viewMode` pattern).
@@ -164,9 +164,9 @@ description: "Task list for Feature 004 — Save Controls and Active File Header
 
 **Purpose**: Verify the gates the Constitution requires (Principle IX type-check), exercise the manual acceptance walkthrough, and re-confirm the chokepoint invariants the contracts depend on. None of these tasks add behaviour — they are quality gates.
 
-- [ ] T010 Run `npm run build` from the repo root. Must complete with zero TypeScript errors. This satisfies the only Quality Gate currently wired up in CI-able form (Constitution Principle IX — see plan.md Complexity Tracking row "Quality gate setup"). Any `tsc` complaint about unused imports, prop-type mismatches between `<App />` and `<Toolbar />`, or missing `useRef` import is a real bug to fix before this task closes.
+- [X] T010 Run `npm run build` from the repo root. Must complete with zero TypeScript errors. This satisfies the only Quality Gate currently wired up in CI-able form (Constitution Principle IX — see plan.md Complexity Tracking row "Quality gate setup"). Any `tsc` complaint about unused imports, prop-type mismatches between `<App />` and `<Toolbar />`, or missing `useRef` import is a real bug to fix before this task closes.
 - [ ] T011 Execute the manual acceptance walkthrough end-to-end: open the app via `npm run tauri dev` and step through all 25 steps in `specs/004-save-file-controls/quickstart.md`. Record any deviation against the relevant FR/SC ID in a scratch note for the PR description. Pay particular attention to step 21 (concurrent Save during in-flight auto-save — the SC-005 hot spot) and step 24 (sanitizer regression after save round-trip — the Principle VII check).
-- [ ] T012 Verify single-chokepoint invariants by grep, per [contracts/components.md](contracts/components.md) Conventions:
+- [X] T012 Verify single-chokepoint invariants by grep, per [contracts/components.md](contracts/components.md) Conventions:
   - `@tauri-apps/plugin-fs`, `@tauri-apps/plugin-dialog`, and `@tauri-apps/api/webviewWindow` must appear **only** in `src/lib/fileOpen.ts`.
   - `localStorage` must appear **only** in `src/lib/preferences.ts` (the bootstrap script in `index.html` is the documented exception — it reads `milf.theme` for the no-flash-of-wrong-theme effect, but it MUST NOT read `milf.autoSave` because auto-save has no first-paint impact).
   Use `Grep` for `@tauri-apps/plugin-fs|@tauri-apps/plugin-dialog|@tauri-apps/api/webviewWindow` across `src/`, and a separate grep for `localStorage` across `src/` and `index.html`. Any extra match is a chokepoint violation to fix.

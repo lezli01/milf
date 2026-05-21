@@ -3,7 +3,12 @@ import type { Theme, ViewMode } from "../lib/preferences";
 type ToolbarProps = {
   viewMode: ViewMode;
   theme: Theme;
+  saveEnabled: boolean;
+  saving: boolean;
+  autoSave: boolean;
   onOpenFile: () => void;
+  onSave: () => void;
+  onToggleAutoSave: (next: boolean) => void;
   onSetViewMode: (mode: ViewMode) => void;
   onToggleTheme: () => void;
 };
@@ -12,7 +17,7 @@ const toolbarShell =
   "flex items-center gap-2 rounded-2xl bg-[color:var(--islands-surface)] ring-1 ring-[color:var(--islands-ring)] shadow-sm backdrop-blur px-3 py-2";
 
 const buttonBase =
-  "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-[color:var(--islands-text)] ring-1 ring-[color:var(--islands-ring)] bg-transparent hover:bg-[color:var(--islands-ring)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--islands-cursor)] transition-colors";
+  "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-[color:var(--islands-text)] ring-1 ring-[color:var(--islands-ring)] bg-transparent hover:bg-[color:var(--islands-ring)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--islands-cursor)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent";
 
 const segmentGroup =
   "inline-flex items-center rounded-lg ring-1 ring-[color:var(--islands-ring)] overflow-hidden";
@@ -24,6 +29,26 @@ const segmentActive = "bg-[color:var(--islands-ring)]";
 
 const iconButton =
   "inline-flex items-center justify-center rounded-lg p-1.5 text-[color:var(--islands-text)] ring-1 ring-[color:var(--islands-ring)] bg-transparent hover:bg-[color:var(--islands-ring)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--islands-cursor)] transition-colors";
+
+function SaveIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+      <path d="M17 21v-8H7v8" />
+      <path d="M7 3v5h8" />
+    </svg>
+  );
+}
 
 function FolderOpenIcon() {
   return (
@@ -87,10 +112,21 @@ const segments: ReadonlyArray<{ mode: ViewMode; label: string }> = [
   { mode: "preview", label: "Preview" },
 ];
 
+const autoSaveLabel =
+  "flex items-center gap-2 px-2 text-sm font-medium text-[color:var(--islands-text)] cursor-pointer select-none";
+
+const autoSaveCheckbox =
+  "accent-[color:var(--islands-cursor)] h-4 w-4";
+
 export default function Toolbar({
   viewMode,
   theme,
+  saveEnabled,
+  saving,
+  autoSave,
   onOpenFile,
+  onSave,
+  onToggleAutoSave,
   onSetViewMode,
   onToggleTheme,
 }: ToolbarProps) {
@@ -98,6 +134,26 @@ export default function Toolbar({
     theme === "light" ? "Switch to dark theme" : "Switch to light theme";
   return (
     <div className={toolbarShell} role="toolbar" aria-label="Workspace controls">
+      <button
+        type="button"
+        className={buttonBase}
+        onClick={onSave}
+        disabled={!saveEnabled}
+        aria-disabled={!saveEnabled}
+        aria-busy={saving}
+      >
+        <SaveIcon />
+        <span>Save</span>
+      </button>
+      <label className={autoSaveLabel}>
+        <input
+          type="checkbox"
+          className={autoSaveCheckbox}
+          checked={autoSave}
+          onChange={(e) => onToggleAutoSave(e.target.checked)}
+        />
+        <span>Auto-save</span>
+      </label>
       <button type="button" className={buttonBase} onClick={onOpenFile}>
         <FolderOpenIcon />
         <span>Open</span>

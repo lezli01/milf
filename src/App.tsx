@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Workspace from "./components/Workspace";
 import Toolbar from "./components/Toolbar";
 import ErrorBanner from "./components/ErrorBanner";
+import FileHeader from "./components/FileHeader";
 import { starterContent } from "./lib/starterContent";
-import { openMarkdownFile, setWindowTitle } from "./lib/fileOpen";
+import { openMarkdownFile, saveMarkdownFile, setWindowTitle } from "./lib/fileOpen";
 import {
+  getAutoSave,
   getTheme,
   getViewMode,
+  setAutoSave as persistAutoSave,
   setTheme as persistTheme,
   setViewMode as persistViewMode,
   type Theme,
@@ -15,15 +18,21 @@ import {
 
 type OpenedFile = { name: string; path: string };
 
+const AUTO_SAVE_DEBOUNCE_MS = 1500;
+
 const appShell =
   "h-screen w-screen flex flex-col gap-4 p-4 md:p-6 bg-gradient-to-br from-[color:var(--islands-bg-from)] to-[color:var(--islands-bg-to)]";
 
 function App() {
   const [text, setText] = useState(starterContent);
+  const [savedText, setSavedText] = useState(starterContent);
   const [openedFile, setOpenedFile] = useState<OpenedFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewMode());
   const [theme, setThemeState] = useState<Theme>(() => getTheme());
+  const [saving, setSaving] = useState(false);
+  const [autoSave, setAutoSaveState] = useState<boolean>(() => getAutoSave());
+  const pendingSaveRef = useRef(false);
 
   useEffect(() => {
     setWindowTitle(openedFile?.name ?? null);
@@ -33,16 +42,61 @@ function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  useEffect(() => {
+    if (!autoSave) return;
+    if (openedFile === null) return;
+    if (text === savedText) return;
+    if (saving) return;
+    const id = setTimeout(() => {
+      void performSave();
+    }, AUTO_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+    // performSave is intentionally not in the dep list — it is recreated each
+    // render and depends only on the same state variables already listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, savedText, autoSave, openedFile, saving]);
+
   async function handleOpenFile() {
     const result = await openMarkdownFile();
     if (result.kind === "ok") {
       setText(result.content);
+      setSavedText(result.content);
       setOpenedFile({ name: result.name, path: result.path });
       setError(null);
     } else if (result.kind === "error") {
       setError(result.message);
     }
     // kind === "cancelled": no-op
+  }
+
+  async function performSave() {
+    if (openedFile === null) return;
+    if (saving) {
+      pendingSaveRef.current = true;
+      return;
+    }
+    setSaving(true);
+    const outbound = text;
+    const result = await saveMarkdownFile(openedFile.path, outbound);
+    if (result.kind === "ok") {
+      setSavedText(outbound);
+      setError(null);
+      setSaving(false);
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        queueMicrotask(() => {
+          void performSave();
+        });
+      }
+    } else {
+      setError(result.message);
+      setSaving(false);
+      pendingSaveRef.current = false;
+    }
+  }
+
+  function handleSave() {
+    void performSave();
   }
 
   function handleSetViewMode(mode: ViewMode) {
@@ -56,12 +110,30 @@ function App() {
     persistTheme(next);
   }
 
+  function handleToggleAutoSave(next: boolean) {
+    setAutoSaveState(next);
+    persistAutoSave(next);
+  }
+
+  const isModified = text !== savedText;
+  const saveEnabled = openedFile !== null && !saving;
+
   return (
     <div className={appShell}>
+      <FileHeader
+        fileName={openedFile?.name ?? null}
+        fullPath={openedFile?.path ?? null}
+        isModified={isModified}
+      />
       <Toolbar
         viewMode={viewMode}
         theme={theme}
+        saveEnabled={saveEnabled}
+        saving={saving}
+        autoSave={autoSave}
         onOpenFile={handleOpenFile}
+        onSave={handleSave}
+        onToggleAutoSave={handleToggleAutoSave}
         onSetViewMode={handleSetViewMode}
         onToggleTheme={handleToggleTheme}
       />
