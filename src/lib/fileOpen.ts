@@ -1,13 +1,21 @@
-// Single chokepoint for Tauri's dialog, fs, and window APIs. No other module
-// in the app should import @tauri-apps/plugin-dialog, @tauri-apps/plugin-fs,
-// or @tauri-apps/api/window — grep for those module names to verify.
+// Single chokepoint for Tauri's dialog, fs (read AND write), and window APIs.
+// No other module in the app should import @tauri-apps/plugin-dialog,
+// @tauri-apps/plugin-fs, or @tauri-apps/api/webviewWindow — grep for those
+// module names to verify.
 
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export type OpenResult =
   | { kind: "ok"; name: string; path: string; content: string }
+  | { kind: "cancelled" }
+  | { kind: "error"; message: string };
+
+export type SaveResult = { kind: "ok" } | { kind: "error"; message: string };
+
+export type SaveAsResult =
+  | { kind: "ok"; name: string; path: string }
   | { kind: "cancelled" }
   | { kind: "error"; message: string };
 
@@ -38,7 +46,7 @@ function friendlyMessage(err: unknown): string {
   ) {
     return "Could not open this file: it does not appear to be a text file.";
   }
-  return "Could not open this file. It may not be a text file, or you may not have permission to read it.";
+  return "This file could not be accessed. It may be locked, read-only, or you may not have permission.";
 }
 
 export async function openMarkdownFile(): Promise<OpenResult> {
@@ -71,6 +79,50 @@ export async function openMarkdownFile(): Promise<OpenResult> {
     return { kind: "ok", name: basename(path), path, content };
   } catch (err) {
     console.warn("Failed to read file:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
+}
+
+export async function saveMarkdownFile(
+  path: string,
+  content: string,
+): Promise<SaveResult> {
+  try {
+    await writeTextFile(path, content);
+    return { kind: "ok" };
+  } catch (err) {
+    console.warn("Failed to save file:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
+}
+
+export async function saveMarkdownFileAs(
+  content: string,
+  defaultName?: string,
+): Promise<SaveAsResult> {
+  let picked: string | null;
+  try {
+    picked = await save({
+      filters: [
+        { name: "Markdown", extensions: ["md", "markdown"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+      defaultPath: defaultName,
+    });
+  } catch (err) {
+    console.warn("Save dialog failed:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
+
+  if (picked === null) {
+    return { kind: "cancelled" };
+  }
+
+  try {
+    await writeTextFile(picked, content);
+    return { kind: "ok", name: basename(picked), path: picked };
+  } catch (err) {
+    console.warn("Failed to save file:", err);
     return { kind: "error", message: friendlyMessage(err) };
   }
 }

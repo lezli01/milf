@@ -7,9 +7,11 @@ export type ViewMode = "editor" | "preview" | "split";
 
 const THEME_KEY = "milf.theme";
 const VIEW_MODE_KEY = "milf.viewMode";
+const AUTO_SAVE_KEY = "milf.autoSave";
 
 const ALLOWED_THEMES: readonly Theme[] = ["light", "dark"];
 const ALLOWED_VIEW_MODES: readonly ViewMode[] = ["editor", "preview", "split"];
+const ALLOWED_AUTO_SAVE = ["on", "off"] as const;
 
 function resolveSystemTheme(): Theme {
   try {
@@ -73,5 +75,28 @@ export function setViewMode(mode: ViewMode): void {
     window.localStorage.setItem(VIEW_MODE_KEY, mode);
   } catch (err) {
     console.warn("Failed to persist view mode preference:", err);
+  }
+}
+
+export function getAutoSave(): boolean {
+  try {
+    const stored = window.localStorage.getItem(AUTO_SAVE_KEY);
+    if (
+      stored !== null &&
+      (ALLOWED_AUTO_SAVE as readonly string[]).includes(stored)
+    ) {
+      return stored === "on";
+    }
+  } catch {
+    // fall through to default
+  }
+  return false;
+}
+
+export function setAutoSave(on: boolean): void {
+  try {
+    window.localStorage.setItem(AUTO_SAVE_KEY, on ? "on" : "off");
+  } catch (err) {
+    console.warn("Failed to persist auto-save preference:", err);
   }
 }
