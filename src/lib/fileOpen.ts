@@ -3,7 +3,7 @@
 // @tauri-apps/plugin-fs, or @tauri-apps/api/webviewWindow — grep for those
 // module names to verify.
 
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
@@ -13,6 +13,11 @@ export type OpenResult =
   | { kind: "error"; message: string };
 
 export type SaveResult = { kind: "ok" } | { kind: "error"; message: string };
+
+export type SaveAsResult =
+  | { kind: "ok"; name: string; path: string }
+  | { kind: "cancelled" }
+  | { kind: "error"; message: string };
 
 function basename(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -85,6 +90,37 @@ export async function saveMarkdownFile(
   try {
     await writeTextFile(path, content);
     return { kind: "ok" };
+  } catch (err) {
+    console.warn("Failed to save file:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
+}
+
+export async function saveMarkdownFileAs(
+  content: string,
+  defaultName?: string,
+): Promise<SaveAsResult> {
+  let picked: string | null;
+  try {
+    picked = await save({
+      filters: [
+        { name: "Markdown", extensions: ["md", "markdown"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+      defaultPath: defaultName,
+    });
+  } catch (err) {
+    console.warn("Save dialog failed:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
+
+  if (picked === null) {
+    return { kind: "cancelled" };
+  }
+
+  try {
+    await writeTextFile(picked, content);
+    return { kind: "ok", name: basename(picked), path: picked };
   } catch (err) {
     console.warn("Failed to save file:", err);
     return { kind: "error", message: friendlyMessage(err) };

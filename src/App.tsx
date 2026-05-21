@@ -4,7 +4,12 @@ import Toolbar from "./components/Toolbar";
 import ErrorBanner from "./components/ErrorBanner";
 import FileHeader from "./components/FileHeader";
 import { starterContent } from "./lib/starterContent";
-import { openMarkdownFile, saveMarkdownFile, setWindowTitle } from "./lib/fileOpen";
+import {
+  openMarkdownFile,
+  saveMarkdownFile,
+  saveMarkdownFileAs,
+  setWindowTitle,
+} from "./lib/fileOpen";
 import {
   getAutoSave,
   getTheme,
@@ -56,6 +61,13 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, savedText, autoSave, openedFile, saving]);
 
+  function handleNewFile() {
+    setText("");
+    setSavedText("");
+    setOpenedFile(null);
+    setError(null);
+  }
+
   async function handleOpenFile() {
     const result = await openMarkdownFile();
     if (result.kind === "ok") {
@@ -70,13 +82,25 @@ function App() {
   }
 
   async function performSave() {
-    if (openedFile === null) return;
     if (saving) {
       pendingSaveRef.current = true;
       return;
     }
     setSaving(true);
     const outbound = text;
+    if (openedFile === null) {
+      const result = await saveMarkdownFileAs(outbound, "Untitled.md");
+      if (result.kind === "ok") {
+        setOpenedFile({ name: result.name, path: result.path });
+        setSavedText(outbound);
+        setError(null);
+      } else if (result.kind === "error") {
+        setError(result.message);
+      }
+      setSaving(false);
+      pendingSaveRef.current = false;
+      return;
+    }
     const result = await saveMarkdownFile(openedFile.path, outbound);
     if (result.kind === "ok") {
       setSavedText(outbound);
@@ -116,7 +140,7 @@ function App() {
   }
 
   const isModified = text !== savedText;
-  const saveEnabled = openedFile !== null && !saving;
+  const saveEnabled = !saving;
 
   return (
     <div className={appShell}>
@@ -131,6 +155,7 @@ function App() {
         saveEnabled={saveEnabled}
         saving={saving}
         autoSave={autoSave}
+        onNewFile={handleNewFile}
         onOpenFile={handleOpenFile}
         onSave={handleSave}
         onToggleAutoSave={handleToggleAutoSave}

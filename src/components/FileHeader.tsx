@@ -19,6 +19,7 @@ export default function FileHeader({
         role="status"
         aria-live="polite"
       >
+        {isModified && <span aria-label="modified">* </span>}
         <span title="No file open">Untitled</span>
       </header>
     );

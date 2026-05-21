@@ -15,7 +15,7 @@
   --islands-muted: #64748b; /* slate-500 */
   --islands-selection: #c7d2fe; /* indigo-200 */
   --islands-cursor: #6366f1; /* indigo-500 */
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
@@ -27,6 +27,7 @@
   --islands-muted: #94a3b8; /* slate-400 */
   --islands-selection: rgb(99 102 241 / 0.35); /* indigo-500 / 35% */
   --islands-cursor: #a5b4fc; /* indigo-300 */
+  color-scheme: dark;
 }
 
 html,

@@ -6,6 +6,7 @@ type ToolbarProps = {
   saveEnabled: boolean;
   saving: boolean;
   autoSave: boolean;
+  onNewFile: () => void;
   onOpenFile: () => void;
   onSave: () => void;
   onToggleAutoSave: (next: boolean) => void;
@@ -29,6 +30,27 @@ const segmentActive = "bg-[color:var(--islands-ring)]";
 
 const iconButton =
   "inline-flex items-center justify-center rounded-lg p-1.5 text-[color:var(--islands-text)] ring-1 ring-[color:var(--islands-ring)] bg-transparent hover:bg-[color:var(--islands-ring)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--islands-cursor)] transition-colors";
+
+function NewFileIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
+      <path d="M14 3v6h6" />
+      <path d="M12 12v6" />
+      <path d="M9 15h6" />
+    </svg>
+  );
+}
 
 function SaveIcon() {
   return (
@@ -124,6 +146,7 @@ export default function Toolbar({
   saveEnabled,
   saving,
   autoSave,
+  onNewFile,
   onOpenFile,
   onSave,
   onToggleAutoSave,
@@ -134,6 +157,10 @@ export default function Toolbar({
     theme === "light" ? "Switch to dark theme" : "Switch to light theme";
   return (
     <div className={toolbarShell} role="toolbar" aria-label="Workspace controls">
+      <button type="button" className={buttonBase} onClick={onNewFile}>
+        <NewFileIcon />
+        <span>New</span>
+      </button>
       <button
         type="button"
         className={buttonBase}
