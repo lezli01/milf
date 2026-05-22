@@ -2,6 +2,10 @@
 // No other module in the app should import @tauri-apps/plugin-dialog,
 // @tauri-apps/plugin-fs, or @tauri-apps/api/webviewWindow — grep for those
 // module names to verify.
+//
+// Companion chokepoints (added in Feature 007):
+//   - src/lib/session.ts        owns load_session / save_session
+//   - src/lib/launchFiles.ts    owns get_pending_files + milf://open-files event
 
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -47,6 +51,19 @@ function friendlyMessage(err: unknown): string {
     return "Could not open this file: it does not appear to be a text file.";
   }
   return "This file could not be accessed. It may be locked, read-only, or you may not have permission.";
+}
+
+export async function openMarkdownFileByPath(path: string): Promise<OpenResult> {
+  if (typeof path !== "string" || path.length === 0) {
+    return { kind: "error", message: "Empty path." };
+  }
+  try {
+    const content = await readTextFile(path);
+    return { kind: "ok", name: basename(path), path, content };
+  } catch (err) {
+    console.warn("Failed to read file by path:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
 }
 
 export async function openMarkdownFile(): Promise<OpenResult> {

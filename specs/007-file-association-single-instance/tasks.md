@@ -36,7 +36,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 **Purpose**: Declare the one new runtime dependency upfront so subsequent compile checks in the foundational and story phases include it.
 
-- [ ] T001 Add `tauri-plugin-single-instance = "2"` to the `[dependencies]` table in `src-tauri/Cargo.toml`. This dep is used by US2 (single instance) but is declared in Setup so the dependency manifest is settled before any code changes land. Run `cargo fetch` from `src-tauri/` after editing to verify the dep resolves.
+- [X] T001 Add `tauri-plugin-single-instance = "2"` to the `[dependencies]` table in `src-tauri/Cargo.toml`. This dep is used by US2 (single instance) but is declared in Setup so the dependency manifest is settled before any code changes land. Run `cargo fetch` from `src-tauri/` after editing to verify the dep resolves.
 
 ---
 
@@ -46,24 +46,24 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 **⚠️ CRITICAL**: No user-story work can begin until this phase is complete.
 
-- [ ] T002 [P] Add a new `openMarkdownFileByPath(path: string): Promise<OpenResult>` export to `src/lib/fileOpen.ts` per [contracts/frontend-modules.md §3](contracts/frontend-modules.md). The implementation mirrors `openMarkdownFile()` minus the dialog step: validate non-empty string, call `readTextFile(path)`, return `{ kind: "ok", name: basename(path), path, content }` on success or `{ kind: "error", message: friendlyMessage(err) }` on failure. Also update the top-of-file chokepoint comment to cross-reference the two new companion chokepoints (`src/lib/session.ts` and `src/lib/launchFiles.ts`) so grep-by-purpose still works.
+- [X] T002 [P] Add a new `openMarkdownFileByPath(path: string): Promise<OpenResult>` export to `src/lib/fileOpen.ts` per [contracts/frontend-modules.md §3](contracts/frontend-modules.md). The implementation mirrors `openMarkdownFile()` minus the dialog step: validate non-empty string, call `readTextFile(path)`, return `{ kind: "ok", name: basename(path), path, content }` on success or `{ kind: "error", message: friendlyMessage(err) }` on failure. Also update the top-of-file chokepoint comment to cross-reference the two new companion chokepoints (`src/lib/session.ts` and `src/lib/launchFiles.ts`) so grep-by-purpose still works.
 
-- [ ] T003 [P] Create `src/lib/launchFiles.ts` per [contracts/frontend-modules.md §2](contracts/frontend-modules.md) and [contracts/tauri-interface.md §3 + §4](contracts/tauri-interface.md). Exports: `OpenFilesPayload` type (`{ paths: string[] }`); `getPendingFiles(): Promise<string[]>` wrapping `invoke<string[]>("get_pending_files")` with an error-swallowing try/catch returning `[]` on failure; `subscribeToOpenFiles(handler: (paths: string[]) => void): Promise<UnlistenFn>` wrapping `listen<OpenFilesPayload>("milf://open-files", evt => handler(evt.payload.paths))`. Include the module-level chokepoint comment from the contract.
+- [X] T003 [P] Create `src/lib/launchFiles.ts` per [contracts/frontend-modules.md §2](contracts/frontend-modules.md) and [contracts/tauri-interface.md §3 + §4](contracts/tauri-interface.md). Exports: `OpenFilesPayload` type (`{ paths: string[] }`); `getPendingFiles(): Promise<string[]>` wrapping `invoke<string[]>("get_pending_files")` with an error-swallowing try/catch returning `[]` on failure; `subscribeToOpenFiles(handler: (paths: string[]) => void): Promise<UnlistenFn>` wrapping `listen<OpenFilesPayload>("milf://open-files", evt => handler(evt.payload.paths))`. Include the module-level chokepoint comment from the contract.
 
-- [ ] T004 [P] Create `src-tauri/src/launch_files.rs` per [contracts/tauri-interface.md §3, §4, §5](contracts/tauri-interface.md) and [research.md §4, §5, §11](research.md). This file is created with the SHARED helpers only — US1/US2/US3 each add their own source-specific function in later phases. Implement:
+- [X] T004 [P] Create `src-tauri/src/launch_files.rs` per [contracts/tauri-interface.md §3, §4, §5](contracts/tauri-interface.md) and [research.md §4, §5, §11](research.md). This file is created with the SHARED helpers only — US1/US2/US3 each add their own source-specific function in later phases. Implement:
   - `pub struct LaunchFilesState { pub pending: Mutex<Vec<PathBuf>>, pub frontend_ready: AtomicBool }` with a `Default` impl.
   - `fn canonicalize_arg(cwd: &Path, arg: &str) -> Option<PathBuf>` — joins `cwd` + relative `arg` (or uses absolute as-is), calls `.canonicalize().ok()` so non-existent / unresolvable paths return `None`.
   - `fn bring_to_front(app: &tauri::AppHandle)` — `if let Some(window) = app.get_webview_window("main") { let _ = window.unminimize(); let _ = window.show(); let _ = window.set_focus(); }`. Errors silenced (best-effort per spec Assumption 3).
   - `fn route_paths(app: &tauri::AppHandle, paths: Vec<PathBuf>)` — short-circuit on empty input; call `bring_to_front(app)`; acquire the `pending` lock; if `frontend_ready.load(SeqCst)` then drop the lock and `app.emit("milf://open-files", json!({"paths": paths.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>()}))`; else extend `pending` with the paths.
   - `#[tauri::command] pub async fn get_pending_files(state: tauri::State<'_, LaunchFilesState>) -> Result<Vec<String>, String>` — acquire `pending` lock; `std::mem::take` the inner `Vec`; set `frontend_ready.store(true, SeqCst)` while still under the lock; release; return the drained paths as `Vec<String>` via `to_string_lossy`.
 
-- [ ] T005 Wire `launch_files` into `src-tauri/src/lib.rs`: add `mod launch_files;` near the top; add `.manage(launch_files::LaunchFilesState::default())` to the Tauri builder chain; register `launch_files::get_pending_files` inside the existing `tauri::generate_handler![...]` macro (keep the existing `greet` registration untouched — its removal is out of scope per plan.md Complexity Tracking). (Depends on T004.)
+- [X] T005 Wire `launch_files` into `src-tauri/src/lib.rs`: add `mod launch_files;` near the top; add `.manage(launch_files::LaunchFilesState::default())` to the Tauri builder chain; register `launch_files::get_pending_files` inside the existing `tauri::generate_handler![...]` macro (keep the existing `greet` registration untouched — its removal is out of scope per plan.md Complexity Tracking). (Depends on T004.)
 
-- [ ] T006 [P] Add a `tabsRef: useRef<Tab[]>([])` to `src/App.tsx` and a syncing `useEffect([tabs])` that does `tabsRef.current = tabs;`. This avoids the stale-closure bug in T007's `openPathsAsTabs` handler (which is captured by the mount-time event subscription in T008 and would otherwise see the empty initial `tabs` array forever). Pattern matches Feature 006's `handleSaveRef` / `handleNewFileRef` / `handleOpenFileRef`.
+- [X] T006 [P] Add a `tabsRef: useRef<Tab[]>([])` to `src/App.tsx` and a syncing `useEffect([tabs])` that does `tabsRef.current = tabs;`. This avoids the stale-closure bug in T007's `openPathsAsTabs` handler (which is captured by the mount-time event subscription in T008 and would otherwise see the empty initial `tabs` array forever). Pattern matches Feature 006's `handleSaveRef` / `handleNewFileRef` / `handleOpenFileRef`.
 
-- [ ] T007 Implement the shared `openPathsAsTabs(paths: string[], options: { source: "session" | "pending" | "live" }): Promise<void>` function inside `src/App.tsx` per [contracts/frontend-modules.md §4 "Shared open-paths handler"](contracts/frontend-modules.md). For each path: look up via `tabsRef.current.find(t => t.openedFile?.path === path)` and re-focus the existing tab if found (set `lastOpenedId` to its id); otherwise call `openMarkdownFileByPath(path)`, on `kind: "ok"` build a new `Tab` (via `nextTabId()`) and `setTabs(prev => [...prev, newTab])` and set `lastOpenedId` to the new id, on `kind: "error"` surface via `setError(result.message)` ONLY when `options.source === "live"` (silent skip for `session` and `pending` per FR-012 / FR-016). At the end, if `lastOpenedId !== null` call the existing `activateTab(lastOpenedId)` so the last successfully opened tab becomes active (FR-022). (Depends on T002, T006.)
+- [X] T007 Implement the shared `openPathsAsTabs(paths: string[], options: { source: "session" | "pending" | "live" }): Promise<void>` function inside `src/App.tsx` per [contracts/frontend-modules.md §4 "Shared open-paths handler"](contracts/frontend-modules.md). For each path: look up via `tabsRef.current.find(t => t.openedFile?.path === path)` and re-focus the existing tab if found (set `lastOpenedId` to its id); otherwise call `openMarkdownFileByPath(path)`, on `kind: "ok"` build a new `Tab` (via `nextTabId()`) and `setTabs(prev => [...prev, newTab])` and set `lastOpenedId` to the new id, on `kind: "error"` surface via `setError(result.message)` ONLY when `options.source === "live"` (silent skip for `session` and `pending` per FR-012 / FR-016). At the end, if `lastOpenedId !== null` call the existing `activateTab(lastOpenedId)` so the last successfully opened tab becomes active (FR-022). (Depends on T002, T006.)
 
-- [ ] T008 Add the mount-time `useEffect([])` in `src/App.tsx` per [contracts/frontend-modules.md §4 "Mount-time effect"](contracts/frontend-modules.md). Order: (1) `unlisten = await subscribeToOpenFiles((paths) => void openPathsAsTabs(paths, { source: "live" }))` FIRST (so events firing mid-mount queue rather than disappear); (2) drain via `const pending = await getPendingFiles()` and pass through `await openPathsAsTabs(pending, { source: "pending" })`; (3) cleanup calls `unlisten()`. Track a `let cancelled = false;` outer flag and check it after each `await` to short-circuit React StrictMode's double-mount. NOTE: the `loadSession()` call is NOT added here yet — that's added in US4 (T019). (Depends on T003, T007.)
+- [X] T008 Add the mount-time `useEffect([])` in `src/App.tsx` per [contracts/frontend-modules.md §4 "Mount-time effect"](contracts/frontend-modules.md). Order: (1) `unlisten = await subscribeToOpenFiles((paths) => void openPathsAsTabs(paths, { source: "live" }))` FIRST (so events firing mid-mount queue rather than disappear); (2) drain via `const pending = await getPendingFiles()` and pass through `await openPathsAsTabs(pending, { source: "pending" })`; (3) cleanup calls `unlisten()`. Track a `let cancelled = false;` outer flag and check it after each `await` to short-circuit React StrictMode's double-mount. NOTE: the `loadSession()` call is NOT added here yet — that's added in US4 (T019). (Depends on T003, T007.)
 
 **Checkpoint**: After Phase 2 the app compiles and behaves identically to Feature 006 (no source pushes paths to the buffer; the live event never fires). The pipeline is fully plumbed and ready to be activated by any of the four user stories.
 
@@ -77,11 +77,11 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Add `bundle.fileAssociations` to `src-tauri/tauri.conf.json` per [research.md §3](research.md): inside the existing `bundle` object, add `"fileAssociations": [{ "ext": ["md", "markdown"], "description": "Markdown document", "name": "Markdown" }]`. This is a one-block config edit; no code changes.
+- [X] T009 [P] [US1] Add `bundle.fileAssociations` to `src-tauri/tauri.conf.json` per [research.md §3](research.md): inside the existing `bundle` object, add `"fileAssociations": [{ "ext": ["md", "markdown"], "description": "Markdown document", "name": "Markdown" }]`. This is a one-block config edit; no code changes.
 
-- [ ] T010 [US1] Add a new `pub fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>)` function to `src-tauri/src/launch_files.rs` per [research.md §4](research.md). For each URL call `.to_file_path()` (returns `Result<PathBuf, _>`), then run the result through `canonicalize_arg`-style symlink+existence resolution (or call `.canonicalize().ok()` directly since `to_file_path` already produces an absolute path), collect the surviving canonical paths, call `route_paths(app, canonical_paths)`. Import the URL type via `use tauri::Url;` (or whichever path the Tauri 2 re-export uses — verify against the version's docs at integration time). (Depends on T004.)
+- [X] T010 [US1] Add a new `pub fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>)` function to `src-tauri/src/launch_files.rs` per [research.md §4](research.md). For each URL call `.to_file_path()` (returns `Result<PathBuf, _>`), then run the result through `canonicalize_arg`-style symlink+existence resolution (or call `.canonicalize().ok()` directly since `to_file_path` already produces an absolute path), collect the surviving canonical paths, call `route_paths(app, canonical_paths)`. Import the URL type via `use tauri::Url;` (or whichever path the Tauri 2 re-export uses — verify against the version's docs at integration time). (Depends on T004.)
 
-- [ ] T011 [US1] Switch the builder chain in `src-tauri/src/lib.rs` from `.run(tauri::generate_context!()).expect(...)` to the `.build(...).expect(...).run(closure)` form per [research.md §4](research.md) and [plan.md Complexity Tracking](plan.md). Implementation:
+- [X] T011 [US1] Switch the builder chain in `src-tauri/src/lib.rs` from `.run(tauri::generate_context!()).expect(...)` to the `.build(...).expect(...).run(closure)` form per [research.md §4](research.md) and [plan.md Complexity Tracking](plan.md). Implementation:
   ```rust
   tauri::Builder::default()
       // ... existing plugins, .manage, .invoke_handler ...
@@ -107,7 +107,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Add a new `pub fn handle_second_invocation(app: &tauri::AppHandle, argv: Vec<String>, cwd: String)` function to `src-tauri/src/launch_files.rs` per [contracts/tauri-interface.md §5](contracts/tauri-interface.md) and [research.md §1](research.md). Implementation:
+- [X] T012 [US2] Add a new `pub fn handle_second_invocation(app: &tauri::AppHandle, argv: Vec<String>, cwd: String)` function to `src-tauri/src/launch_files.rs` per [contracts/tauri-interface.md §5](contracts/tauri-interface.md) and [research.md §1](research.md). Implementation:
   ```rust
   pub fn handle_second_invocation(app: &tauri::AppHandle, argv: Vec<String>, cwd: String) {
       bring_to_front(app);  // unconditional — handles bare second invocation (FR-008)
@@ -122,7 +122,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
   ```
   Note: the SI plugin's contract for what `argv` contains (whether `argv[0]` is the executable path) should be verified against the plugin's docs at integration time — if argv[0] is included, add `.iter().skip(1)`. The unconditional `bring_to_front` call satisfies FR-007 + FR-008 (bare second launches raise the window without touching tabs). (Depends on T004.)
 
-- [ ] T013 [US2] Register the single-instance plugin in `src-tauri/src/lib.rs` per [research.md §1](research.md). Add the plugin **first** in the chain so the second invocation is short-circuited before any other plugin runs in the second process:
+- [X] T013 [US2] Register the single-instance plugin in `src-tauri/src/lib.rs` per [research.md §1](research.md). Add the plugin **first** in the chain so the second invocation is short-circuited before any other plugin runs in the second process:
   ```rust
   tauri::Builder::default()
       .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
@@ -144,7 +144,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Add a new `pub fn ingest_initial_args(app: tauri::AppHandle, argv: Vec<String>)` function to `src-tauri/src/launch_files.rs` per [research.md §2, §4](research.md). Implementation:
+- [X] T014 [US3] Add a new `pub fn ingest_initial_args(app: tauri::AppHandle, argv: Vec<String>)` function to `src-tauri/src/launch_files.rs` per [research.md §2, §4](research.md). Implementation:
   ```rust
   pub fn ingest_initial_args(app: tauri::AppHandle, argv: Vec<String>) {
       let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
@@ -159,7 +159,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
   ```
   (Depends on T004.)
 
-- [ ] T015 [US3] Add a `.setup(...)` closure to the Tauri builder chain in `src-tauri/src/lib.rs` that calls `ingest_initial_args` per [research.md §2](research.md). Place AFTER `.plugin(tauri_plugin_single_instance::init(...))` from T013 (so the SI plugin claims the lock first; if the lock is already held the second process never reaches `.setup`):
+- [X] T015 [US3] Add a `.setup(...)` closure to the Tauri builder chain in `src-tauri/src/lib.rs` that calls `ingest_initial_args` per [research.md §2](research.md). Place AFTER `.plugin(tauri_plugin_single_instance::init(...))` from T013 (so the SI plugin claims the lock first; if the lock is already held the second process never reaches `.setup`):
   ```rust
   .setup(|app| {
       launch_files::ingest_initial_args(app.handle().clone(), std::env::args().collect());
@@ -180,7 +180,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 ### Implementation for User Story 4
 
-- [ ] T016 [P] [US4] Create `src-tauri/src/session.rs` per [contracts/tauri-interface.md §1, §2](contracts/tauri-interface.md) and [data-model.md §1](data-model.md). Implement:
+- [X] T016 [P] [US4] Create `src-tauri/src/session.rs` per [contracts/tauri-interface.md §1, §2](contracts/tauri-interface.md) and [data-model.md §1](data-model.md). Implement:
   - Serde structs:
     ```rust
     #[derive(Serialize, Deserialize, Default)]
@@ -198,15 +198,15 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
   - `#[tauri::command] pub async fn load_session(app: tauri::AppHandle) -> Result<SessionRecord, String>`: resolve `${app_data_dir}/session.json` via `app.path().app_data_dir()`; `read_to_string` and if any error → `Ok(SessionRecord { version: 1, tabs: vec![], active_index: None })`; `serde_json::from_str` and if parse fails or `version != 1` → same fallback; otherwise return the parsed record.
   - `#[tauri::command] pub async fn save_session(app: tauri::AppHandle, record: SessionRecord) -> Result<(), String>`: resolve `${app_data_dir}`; `create_dir_all` (idempotent); serialize `record` to JSON (pretty or compact — either is fine); write to `${app_data_dir}/session.json.tmp`; `std::fs::rename` over `${app_data_dir}/session.json` (atomic on all three OSes); return `Ok(())`. On any I/O error return `Err(format!("{err}"))`.
 
-- [ ] T017 [US4] Wire the session module into `src-tauri/src/lib.rs`: add `mod session;`; add `session::load_session` and `session::save_session` to the existing `tauri::generate_handler![...]` macro alongside `launch_files::get_pending_files` and `greet`. (Depends on T016.)
+- [X] T017 [US4] Wire the session module into `src-tauri/src/lib.rs`: add `mod session;`; add `session::load_session` and `session::save_session` to the existing `tauri::generate_handler![...]` macro alongside `launch_files::get_pending_files` and `greet`. (Depends on T016.)
 
-- [ ] T018 [P] [US4] Create `src/lib/session.ts` per [contracts/frontend-modules.md §1](contracts/frontend-modules.md). Exports:
+- [X] T018 [P] [US4] Create `src/lib/session.ts` per [contracts/frontend-modules.md §1](contracts/frontend-modules.md). Exports:
   - Types `SessionTabEntry = { path: string }` and `SessionRecord = { version: 1; tabs: SessionTabEntry[]; active_index: number | null }` (snake_case to match the Rust struct field names).
   - `loadSession(): Promise<SessionRecord>` wrapping `invoke<SessionRecord>("load_session")` with try/catch — return `{ version: 1, tabs: [], active_index: null }` on any IPC failure (logs via `console.warn`).
   - `saveSession(record: SessionRecord): Promise<void>` wrapping `invoke<void>("save_session", { record })` with try/catch — log via `console.warn` on IPC failure; never throws.
   Include the module-level chokepoint comment from the contract.
 
-- [ ] T019 [US4] Extend the mount-time `useEffect([])` in `src/App.tsx` (originally added by T008) to call `loadSession()` and restore tabs BETWEEN the subscribe step and the `getPendingFiles()` drain step per [contracts/frontend-modules.md §4 "Mount-time effect"](contracts/frontend-modules.md) and [research.md §10](research.md). New ordering:
+- [X] T019 [US4] Extend the mount-time `useEffect([])` in `src/App.tsx` (originally added by T008) to call `loadSession()` and restore tabs BETWEEN the subscribe step and the `getPendingFiles()` drain step per [contracts/frontend-modules.md §4 "Mount-time effect"](contracts/frontend-modules.md) and [research.md §10](research.md). New ordering:
   1. `unlisten = await subscribeToOpenFiles(...)` (unchanged from T008).
   2. `const session = await loadSession()`.
   3. Iterate `session.tabs` in order. For each entry call `openMarkdownFileByPath(entry.path)`. Build an indexed array (`restored: Array<Tab | null>`) tracking which saved indices succeeded; collect the surviving tabs into a new `survivingTabs` array via `restored.filter((t): t is Tab => t !== null)`; call `setTabs(survivingTabs)`.
@@ -215,7 +215,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
   6. `await openPathsAsTabs(pending, { source: "pending" })` (unchanged from T008). The handler's "last opened wins active" rule overrides the session-restored active when CLI/OS-supplied files are present (FR-022).
   Keep the `cancelled` flag check after every `await`. (Depends on T008 and T018.)
 
-- [ ] T020 [US4] Add the debounced save effect to `src/App.tsx` per [contracts/frontend-modules.md §4 "Debounced save effect"](contracts/frontend-modules.md) and [research.md §8](research.md). Implementation:
+- [X] T020 [US4] Add the debounced save effect to `src/App.tsx` per [contracts/frontend-modules.md §4 "Debounced save effect"](contracts/frontend-modules.md) and [research.md §8](research.md). Implementation:
   ```ts
   const tabPathsKey = useMemo(
     () => tabs.map(t => t.openedFile?.path ?? "").join("|"),
@@ -250,7 +250,7 @@ Single-project layout (Tauri 2 + React + TypeScript + Vite):
 
 - [ ] T022 [P] Cross-OS smoke test: run [quickstart.md Scenarios A1-A4, B1-B5, C14-C18](quickstart.md) on at least one of macOS or Linux (whichever is reachable). Scenario B5 (macOS-specific `RunEvent::Opened` for hot file activation) is the most important non-Windows check since the Rust code path is conditional on OS-level event delivery and cannot be exercised on Windows. Document findings in the PR description.
 
-- [ ] T023 [P] Update [README.md](README.md) Features list (lines 17-29) to add three new user-facing bullets:
+- [X] T023 [P] Update [README.md](README.md) Features list (lines 17-29) to add three new user-facing bullets:
   - "Open files from your file manager." Set MILF as the default for `.md` and a double-click opens MILF (or routes to the running instance).
   - "One window per user." MILF runs as a single instance; new file requests bring the existing window to the foreground.
   - "Resumes where you left off." Open files are remembered between launches; missing files are silently dropped.
