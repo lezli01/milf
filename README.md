@@ -8,23 +8,26 @@
 
 MILF is a lightweight, cross-platform Markdown viewer and editor for Windows, Linux, and macOS.
 
-![MILF showing the split-pane editor with starter content in the dark theme](docs/images/screenshot.png)
+![MILF showing two open tabs above the toolbar, with starter markdown in the editor pane and its live rendering in the preview pane, in the dark theme](docs/images/screenshot.png)
 
 ## Status
 
-Early development, but already usable day-to-day. The split-pane workspace, file open/save, view modes, theming, and auto-save are working today. Specs for shipped and in-progress features live under [`specs/`](specs); open issues and follow-ups are in the [issue tracker](https://github.com/lezli01/milf/issues).
+Early development, but already usable day-to-day. The split-pane workspace, multi-file tabs, file open/save, view modes, theming, auto-save, OS file-association handling, single-instance routing, and session restore are working today. Specs for shipped and in-progress features live under [`specs/`](specs); open issues and follow-ups are in the [issue tracker](https://github.com/lezli01/milf/issues).
 
 ## Features
 
 - **Live split-pane preview.** Edit Markdown on the left, see it rendered on the right, with each pane scrolling independently.
 - **Three view modes.** Editor-only, preview-only, or side-by-side — switch at any time without losing the editor's content, selection, or undo history.
+- **Multiple files in tabs.** Open many `.md` files at once; each tab keeps its own content, modified indicator, and cursor/scroll position so switching feels instant.
+- **New empty file.** Start a fresh markdown document from the toolbar or `Ctrl+N` / `⌘N`; the first Save prompts for a path.
 - **Light and dark theme.** Honors the operating system's appearance preference by default, with a manual toggle in the toolbar.
 - **Open files from disk.** Native file picker biased toward `.md` and `.markdown`, with a fallback to all files.
 - **Open files from your file manager.** Set MILF as the default for `.md` and a double-click opens MILF (or routes to the running instance).
 - **One window per user.** MILF runs as a single instance; new file requests bring the existing window to the foreground.
 - **Save back to disk.** Manual Save plus a visible modified indicator next to the file name so you always know whether your edits are on disk.
 - **Optional auto-save.** Tick the box once and edits land on disk shortly after you stop typing, while a file is open.
-- **Resumes where you left off.** Open files are remembered between launches; missing files are silently dropped.
+- **Close-tab guard.** Closing a tab with unsaved edits prompts to Save, Discard, or Cancel so reflex clicks don't lose work.
+- **Resumes where you left off.** All open tabs are remembered between launches, including which one was active; files that have been moved or deleted are silently dropped.
 - **Persistent preferences.** Theme, view mode, and auto-save choice are remembered between launches, stored locally.
 - **Responsive layout.** Side-by-side on a normal window, stacks vertically at narrow widths.
 - **Safe preview.** Rendered HTML is sanitized with DOMPurify before display.
