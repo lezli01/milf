@@ -77,11 +77,7 @@ pub fn ingest_initial_args(app: tauri::AppHandle, argv: Vec<String>) {
     }
 }
 
-pub fn handle_second_invocation(
-    app: &tauri::AppHandle,
-    argv: Vec<String>,
-    cwd: String,
-) {
+pub fn handle_second_invocation(app: &tauri::AppHandle, argv: Vec<String>, cwd: String) {
     bring_to_front(app);
     let cwd_path = PathBuf::from(&cwd);
     let canonical: Vec<PathBuf> = argv

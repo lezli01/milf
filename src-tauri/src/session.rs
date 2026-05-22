@@ -39,16 +39,12 @@ pub async fn load_session(app: tauri::AppHandle) -> Result<SessionRecord, String
 }
 
 #[tauri::command]
-pub async fn save_session(
-    app: tauri::AppHandle,
-    record: SessionRecord,
-) -> Result<(), String> {
+pub async fn save_session(app: tauri::AppHandle, record: SessionRecord) -> Result<(), String> {
     let dir = app
         .path()
         .app_data_dir()
         .map_err(|err| format!("failed to resolve app_data_dir: {err}"))?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| format!("failed to create app_data_dir: {err}"))?;
+    std::fs::create_dir_all(&dir).map_err(|err| format!("failed to create app_data_dir: {err}"))?;
     let serialized = serde_json::to_string_pretty(&record)
         .map_err(|err| format!("failed to serialize session: {err}"))?;
     let tmp = dir.join("session.json.tmp");

@@ -18,10 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(launch_files::LaunchFilesState::default())
         .setup(|app| {
-            launch_files::ingest_initial_args(
-                app.handle().clone(),
-                std::env::args().collect(),
-            );
+            launch_files::ingest_initial_args(app.handle().clone(), std::env::args().collect());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
