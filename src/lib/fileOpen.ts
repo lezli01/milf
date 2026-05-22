@@ -6,7 +6,14 @@
 // Companion chokepoints (added in Feature 007):
 //   - src/lib/session.ts        owns load_session / save_session
 //   - src/lib/launchFiles.ts    owns get_pending_files + milf://open-files event
+//
+// Note: openMarkdownFileByPath reads via the Rust `read_text_file_by_path`
+// command rather than the fs plugin's readTextFile because programmatic paths
+// (CLI args, OS file activations, session restore) don't get the fs plugin's
+// implicit per-dialog scope grant. Reading on the Rust side sidesteps the
+// scope concern and works uniformly across all OSes.
 
+import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -58,7 +65,7 @@ export async function openMarkdownFileByPath(path: string): Promise<OpenResult> 
     return { kind: "error", message: "Empty path." };
   }
   try {
-    const content = await readTextFile(path);
+    const content = await invoke<string>("read_text_file_by_path", { path });
     return { kind: "ok", name: basename(path), path, content };
   } catch (err) {
     console.warn("Failed to read file by path:", err);

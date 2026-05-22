@@ -27,6 +27,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             launch_files::get_pending_files,
+            launch_files::read_text_file_by_path,
             session::load_session,
             session::save_session
         ])

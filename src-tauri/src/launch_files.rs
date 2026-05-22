@@ -19,6 +19,24 @@ impl Default for LaunchFilesState {
     }
 }
 
+/// Strip Windows' `\\?\` UNC prefix that `std::fs::canonicalize` adds, so the
+/// resulting path is consumable by frontends and IPC payloads. Leaves real UNC
+/// network paths (`\\?\UNC\server\share`) untouched. Non-Windows targets pass
+/// through unchanged.
+pub fn strip_unc_prefix(path: PathBuf) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        let s = path.to_string_lossy();
+        const UNC_PREFIX: &str = r"\\?\";
+        if let Some(stripped) = s.strip_prefix(UNC_PREFIX) {
+            if !stripped.starts_with("UNC\\") {
+                return PathBuf::from(stripped);
+            }
+        }
+    }
+    path
+}
+
 pub fn canonicalize_arg(cwd: &Path, arg: &str) -> Option<PathBuf> {
     let path = Path::new(arg);
     let abs = if path.is_absolute() {
@@ -26,7 +44,12 @@ pub fn canonicalize_arg(cwd: &Path, arg: &str) -> Option<PathBuf> {
     } else {
         cwd.join(path)
     };
-    abs.canonicalize().ok()
+    abs.canonicalize().ok().map(strip_unc_prefix)
+}
+
+#[tauri::command]
+pub async fn read_text_file_by_path(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|err| err.to_string())
 }
 
 pub fn bring_to_front(app: &tauri::AppHandle) {
@@ -72,6 +95,7 @@ pub fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
         .into_iter()
         .filter_map(|url| url.to_file_path().ok())
         .filter_map(|p| p.canonicalize().ok())
+        .map(strip_unc_prefix)
         .collect();
     if !canonical.is_empty() {
         route_paths(app, canonical);
