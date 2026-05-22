@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EditorState, StateEffect } from "@codemirror/state";
 import Workspace from "./components/Workspace";
 import Toolbar from "./components/Toolbar";
@@ -9,10 +9,17 @@ import type { EditorHandle } from "./components/Editor";
 import type { PreviewHandle } from "./components/Preview";
 import {
   openMarkdownFile,
+  openMarkdownFileByPath,
   saveMarkdownFile,
   saveMarkdownFileAs,
   setWindowTitle,
 } from "./lib/fileOpen";
+import { getPendingFiles, subscribeToOpenFiles } from "./lib/launchFiles";
+import {
+  loadSession,
+  saveSession,
+  type SessionTabEntry,
+} from "./lib/session";
 import {
   getAutoSave,
   getTheme,
@@ -107,6 +114,11 @@ function App() {
   const editorRef = useRef<EditorHandle>(null);
   const previewRef = useRef<PreviewHandle>(null);
   const pendingSaveRef = useRef<Map<TabId, boolean>>(new Map());
+  const tabsRef = useRef<Tab[]>([]);
+
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const activeText = activeTab?.text ?? "";
@@ -157,8 +169,117 @@ function App() {
   }, [activeTabId]);
 
   useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+
+    (async () => {
+      unlisten = await subscribeToOpenFiles((paths) => {
+        void openPathsAsTabs(paths, { source: "live" });
+      });
+      if (cancelled) {
+        unlisten();
+        return;
+      }
+
+      const session = await loadSession();
+      if (cancelled) return;
+      const restored: Array<Tab | null> = [];
+      for (const entry of session.tabs) {
+        const result = await openMarkdownFileByPath(entry.path);
+        if (cancelled) return;
+        if (result.kind === "ok") {
+          restored.push({
+            id: nextTabId(),
+            text: result.content,
+            savedText: result.content,
+            openedFile: { name: result.name, path: result.path },
+            untitledLabel: null,
+          });
+        } else {
+          restored.push(null);
+        }
+      }
+      const survivingTabs = restored.filter(
+        (t): t is Tab => t !== null,
+      );
+      setTabs(survivingTabs);
+
+      let initialActiveId: TabId | null = null;
+      const savedIdx = session.active_index;
+      if (savedIdx !== null && savedIdx >= 0 && savedIdx < restored.length) {
+        const at = restored[savedIdx];
+        if (at !== null) {
+          initialActiveId = at.id;
+        }
+      }
+      if (initialActiveId === null && savedIdx !== null) {
+        for (let i = savedIdx + 1; i < restored.length; i++) {
+          const t = restored[i];
+          if (t !== null) {
+            initialActiveId = t.id;
+            break;
+          }
+        }
+        if (initialActiveId === null) {
+          for (let i = Math.min(savedIdx - 1, restored.length - 1); i >= 0; i--) {
+            const t = restored[i];
+            if (t !== null) {
+              initialActiveId = t.id;
+              break;
+            }
+          }
+        }
+      }
+      if (initialActiveId === null && survivingTabs.length > 0) {
+        initialActiveId = survivingTabs[0].id;
+      }
+      setActiveTabId(initialActiveId);
+      tabsRef.current = survivingTabs;
+
+      const pending = await getPendingFiles();
+      if (cancelled) return;
+      if (pending.length > 0) {
+        await openPathsAsTabs(pending, { source: "pending" });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     setWindowTitle(activeTab?.openedFile?.name ?? null);
   }, [activeTabId, activeTab?.openedFile?.name]);
+
+  const tabPathsKey = useMemo(
+    () => tabs.map((t) => t.openedFile?.path ?? "").join("|"),
+    [tabs],
+  );
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const savedTabs: SessionTabEntry[] = tabs
+        .filter((t) => t.openedFile !== null)
+        .map((t) => ({ path: t.openedFile!.path }));
+      let activeIdx: number | null = null;
+      if (activeTab?.openedFile) {
+        const idx = savedTabs.findIndex(
+          (s) => s.path === activeTab.openedFile!.path,
+        );
+        activeIdx = idx >= 0 ? idx : null;
+      }
+      void saveSession({
+        version: 1,
+        tabs: savedTabs,
+        active_index: activeIdx,
+      });
+    }, 300);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabPathsKey, activeTabId]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -216,6 +337,39 @@ function App() {
       setError(result.message);
     }
     // kind === "cancelled": no-op
+  }
+
+  async function openPathsAsTabs(
+    paths: string[],
+    options: { source: "session" | "pending" | "live" },
+  ): Promise<void> {
+    let lastOpenedId: TabId | null = null;
+    for (const path of paths) {
+      const existing = tabsRef.current.find(
+        (t) => t.openedFile?.path === path,
+      );
+      if (existing) {
+        lastOpenedId = existing.id;
+        continue;
+      }
+      const result = await openMarkdownFileByPath(path);
+      if (result.kind === "ok") {
+        const newTab: Tab = {
+          id: nextTabId(),
+          text: result.content,
+          savedText: result.content,
+          openedFile: { name: result.name, path: result.path },
+          untitledLabel: null,
+        };
+        setTabs((prev) => [...prev, newTab]);
+        lastOpenedId = newTab.id;
+      } else if (result.kind === "error" && options.source === "live") {
+        setError(result.message);
+      }
+    }
+    if (lastOpenedId !== null) {
+      activateTab(lastOpenedId);
+    }
   }
 
   async function performSave(

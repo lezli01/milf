@@ -2,9 +2,20 @@
 // No other module in the app should import @tauri-apps/plugin-dialog,
 // @tauri-apps/plugin-fs, or @tauri-apps/api/webviewWindow — grep for those
 // module names to verify.
+//
+// Companion chokepoints (added in Feature 007):
+//   - src/lib/session.ts        owns load_session / save_session
+//   - src/lib/launchFiles.ts    owns get_pending_files + milf://open-files event
+//
+// Note: openMarkdownFileByPath reads via the Rust `read_text_file_by_path`
+// command rather than the fs plugin's readTextFile because programmatic paths
+// (CLI args, OS file activations, session restore) don't get the fs plugin's
+// implicit per-dialog scope grant. Reading on the Rust side sidesteps the
+// scope concern and works uniformly across all OSes.
 
+import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export type OpenResult =
@@ -23,6 +34,21 @@ function basename(path: string): string {
   const normalized = path.replace(/\\/g, "/");
   const idx = normalized.lastIndexOf("/");
   return idx >= 0 ? normalized.slice(idx + 1) : normalized;
+}
+
+/**
+ * Normalize text loaded from disk so the in-memory representation matches what
+ * CodeMirror produces: strip a leading UTF-8 BOM and collapse `\r\n` / lone `\r`
+ * line endings to `\n`. Without this, files saved on Windows with CRLF show as
+ * "modified" the instant they load (CodeMirror reports `\n`-only text but the
+ * raw disk read has `\r\n`).
+ */
+function normalizeLoadedText(content: string): string {
+  let out = content;
+  if (out.charCodeAt(0) === 0xfeff) {
+    out = out.slice(1);
+  }
+  return out.replace(/\r\n?/g, "\n");
 }
 
 function friendlyMessage(err: unknown): string {
@@ -47,6 +73,24 @@ function friendlyMessage(err: unknown): string {
     return "Could not open this file: it does not appear to be a text file.";
   }
   return "This file could not be accessed. It may be locked, read-only, or you may not have permission.";
+}
+
+export async function openMarkdownFileByPath(path: string): Promise<OpenResult> {
+  if (typeof path !== "string" || path.length === 0) {
+    return { kind: "error", message: "Empty path." };
+  }
+  try {
+    const raw = await invoke<string>("read_text_file_by_path", { path });
+    return {
+      kind: "ok",
+      name: basename(path),
+      path,
+      content: normalizeLoadedText(raw),
+    };
+  } catch (err) {
+    console.warn("Failed to read file by path:", err);
+    return { kind: "error", message: friendlyMessage(err) };
+  }
 }
 
 export async function openMarkdownFile(): Promise<OpenResult> {
@@ -75,8 +119,13 @@ export async function openMarkdownFile(): Promise<OpenResult> {
   }
 
   try {
-    const content = await readTextFile(path);
-    return { kind: "ok", name: basename(path), path, content };
+    const raw = await readTextFile(path);
+    return {
+      kind: "ok",
+      name: basename(path),
+      path,
+      content: normalizeLoadedText(raw),
+    };
   } catch (err) {
     console.warn("Failed to read file:", err);
     return { kind: "error", message: friendlyMessage(err) };
@@ -88,7 +137,7 @@ export async function saveMarkdownFile(
   content: string,
 ): Promise<SaveResult> {
   try {
-    await writeTextFile(path, content);
+    await invoke<void>("write_text_file_by_path", { path, content });
     return { kind: "ok" };
   } catch (err) {
     console.warn("Failed to save file:", err);
@@ -119,7 +168,7 @@ export async function saveMarkdownFileAs(
   }
 
   try {
-    await writeTextFile(picked, content);
+    await invoke<void>("write_text_file_by_path", { path: picked, content });
     return { kind: "ok", name: basename(picked), path: picked };
   } catch (err) {
     console.warn("Failed to save file:", err);
