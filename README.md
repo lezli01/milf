@@ -8,7 +8,7 @@
 
 MILF is a lightweight, cross-platform Markdown viewer and editor for Windows, Linux, and macOS.
 
-![MILF showing two open tabs above the toolbar, with starter markdown in the editor pane and its live rendering in the preview pane, in the dark theme](docs/images/screenshot.png)
+![MILF in the dark theme: two open tabs, the Markdown formatting toolbar above the editor, sample Markdown in the editor pane, and its live rendering in the preview pane](docs/images/screenshot.png)
 
 ## Status
 
